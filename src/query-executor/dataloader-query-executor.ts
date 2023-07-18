@@ -29,6 +29,7 @@ type Batch = {
 }
 
 export class DataloaderQueryExecutor extends QueryExecutorBase {
+  static #instance: DataloaderQueryExecutor
   #compiler: QueryCompiler
   #connectionProvider: ConnectionProvider
   #batches: Batch = {}
@@ -44,6 +45,22 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
     this.#compiler = compiler
     this.#connectionProvider = connectionProvider
+  }
+
+  static create(
+    compiler: QueryCompiler,
+    connectionProvider: ConnectionProvider,
+    plugins: KyselyPlugin[] = []
+  ): DataloaderQueryExecutor {
+    if (this.#instance == null) {
+      this.#instance = new DataloaderQueryExecutor(
+        compiler,
+        connectionProvider,
+        plugins
+      )
+    }
+
+    return this.#instance
   }
 
   get adapter(): DialectAdapter {
@@ -99,7 +116,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
               const compiledQuery = this.#compiler.compileQuery(batchNode)
 
-              batch.result = super.executeQuery<UnknownRow>(
+              batch.result = this.executeQuery<UnknownRow>(
                 compiledQuery,
                 queryId
               )
@@ -134,7 +151,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
       return result
     }
-    return super.executeQuery<R>(compiledQuery, queryId)
+    return this.executeQuery<R>(compiledQuery, queryId)
   }
 
   provideConnection<T>(
