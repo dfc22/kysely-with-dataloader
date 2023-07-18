@@ -664,7 +664,8 @@ export class DataloaderBuilder<DB> {
       ...props,
       executor: DataloaderQueryExecutor.create(
         props.dialect.createQueryCompiler(),
-        props.executor
+        props.executor,
+        [...props.executor.plugins]
       ),
     })
   }

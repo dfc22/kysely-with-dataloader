@@ -116,7 +116,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
               const compiledQuery = this.#compiler.compileQuery(batchNode)
 
-              batch.result = this.executeQuery<UnknownRow>(
+              batch.result = super.executeQuery<UnknownRow>(
                 compiledQuery,
                 queryId
               )
