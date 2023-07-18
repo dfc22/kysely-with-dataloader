@@ -1,4 +1,4 @@
-import { QueryResult } from '../driver/database-connection'
+import { DatabaseConnection, QueryResult } from '../driver/database-connection'
 import { OrNode } from '../operation-node/or-node'
 import { SelectQueryNode } from '../operation-node/select-query-node'
 import { WhereNode } from '../operation-node/where-node'
@@ -14,6 +14,7 @@ import { QueryId } from '../util/query-id'
 import { QueryExecutorBase } from './query-executor-base'
 import { DialectAdapter } from '../dialect/dialect-adapter'
 import { KyselyPlugin } from '../plugin/kysely-plugin'
+import { ConnectionProvider } from '../driver/connection-provider'
 
 type Job = {
   queryId: QueryId
@@ -29,14 +30,20 @@ type Batch = {
 
 export class DataloaderQueryExecutor extends QueryExecutorBase {
   #compiler: QueryCompiler
+  #connectionProvider: ConnectionProvider
   #batches: Batch = {}
   #tickActive = false
   #tickId = createId()
 
-  constructor(compiler: QueryCompiler, plugins: KyselyPlugin[] = []) {
+  constructor(
+    compiler: QueryCompiler,
+    connectionProvider: ConnectionProvider,
+    plugins: KyselyPlugin[] = []
+  ) {
     super(plugins)
 
     this.#compiler = compiler
+    this.#connectionProvider = connectionProvider
   }
 
   get adapter(): DialectAdapter {
@@ -130,36 +137,49 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
     return super.executeQuery<R>(compiledQuery, queryId)
   }
 
-  provideConnection<T>(): Promise<T> {
-    throw new Error('this query cannot be executed')
+  provideConnection<T>(
+    consumer: (connection: DatabaseConnection) => Promise<T>
+  ): Promise<T> {
+    return this.#connectionProvider.provideConnection(consumer)
   }
 
   withConnectionProvider(): DataloaderQueryExecutor {
-    throw new Error('this query cannot have a connection provider')
+    return new DataloaderQueryExecutor(
+      this.#compiler,
+      this.#connectionProvider,
+      [...this.plugins]
+    )
   }
 
   withPlugin(plugin: KyselyPlugin): DataloaderQueryExecutor {
-    return new DataloaderQueryExecutor(this.#compiler, [
-      ...this.plugins,
-      plugin,
-    ])
+    return new DataloaderQueryExecutor(
+      this.#compiler,
+      this.#connectionProvider,
+      [...this.plugins, plugin]
+    )
   }
 
   withPlugins(plugins: ReadonlyArray<KyselyPlugin>): DataloaderQueryExecutor {
-    return new DataloaderQueryExecutor(this.#compiler, [
-      ...this.plugins,
-      ...plugins,
-    ])
+    return new DataloaderQueryExecutor(
+      this.#compiler,
+      this.#connectionProvider,
+      [...this.plugins, ...plugins]
+    )
   }
 
   withPluginAtFront(plugin: KyselyPlugin): DataloaderQueryExecutor {
-    return new DataloaderQueryExecutor(this.#compiler, [
-      plugin,
-      ...this.plugins,
-    ])
+    return new DataloaderQueryExecutor(
+      this.#compiler,
+      this.#connectionProvider,
+      [plugin, ...this.plugins]
+    )
   }
 
   withoutPlugins(): DataloaderQueryExecutor {
-    return new DataloaderQueryExecutor(this.#compiler, [])
+    return new DataloaderQueryExecutor(
+      this.#compiler,
+      this.#connectionProvider,
+      []
+    )
   }
 }
