@@ -670,18 +670,9 @@ export class DataloaderBuilder<DB> {
   }
 
   async execute<T>(callback: (dtl: Dataloader<DB>) => Promise<T>): Promise<T> {
-    return this.#props.executor.provideConnection(async (connection) => {
-      const executor = this.#props.executor.withConnectionProvider(
-        new SingleConnectionProvider(connection)
-      )
+    const dataloader = new Dataloader<DB>(this.#props)
 
-      const dataloader = new Dataloader<DB>({
-        ...this.#props,
-        executor,
-      })
-
-      return await callback(dataloader)
-    })
+    return await callback(dataloader)
   }
 }
 
