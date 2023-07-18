@@ -36,7 +36,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
   #tickActive = false
   #tickId = createId()
 
-  constructor(
+  private constructor(
     compiler: QueryCompiler,
     connectionProvider: ConnectionProvider,
     plugins: KyselyPlugin[] = []
