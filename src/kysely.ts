@@ -663,7 +663,8 @@ export class DataloaderBuilder<DB> {
     this.#props = freeze({
       ...props,
       executor: new DataloaderQueryExecutor(
-        props.dialect.createQueryCompiler()
+        props.dialect.createQueryCompiler(),
+        props.executor
       ),
     })
   }
