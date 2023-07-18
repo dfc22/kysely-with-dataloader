@@ -32,6 +32,7 @@ import { CaseNode } from './operation-node/case-node.js'
 import { parseExpression } from './parser/expression-parser.js'
 import { Expression } from './expression/expression.js'
 import { WithSchemaPlugin } from './plugin/with-schema/with-schema-plugin.js'
+import { DataloaderQueryExecutor } from './query-executor/dataloader-query-executor.js'
 
 /**
  * The main Kysely class.
@@ -251,6 +252,10 @@ export class Kysely<DB>
    */
   transaction(): TransactionBuilder<DB> {
     return new TransactionBuilder({ ...this.#props })
+  }
+
+  dataloader(): DataloaderBuilder<DB> {
+    return new DataloaderBuilder({ ...this.#props })
   }
 
   /**
@@ -591,3 +596,97 @@ function validateTransactionSettings(settings: TransactionSettings): void {
     )
   }
 }
+
+export class Dataloader<DB> extends Kysely<DB> {
+  readonly #props: KyselyProps
+
+  constructor(props: KyselyProps) {
+    super(props)
+    this.#props = props
+  }
+
+  transaction(): TransactionBuilder<DB> {
+    throw new Error(
+      'calling the transaction method for a Dataloader is not supported'
+    )
+  }
+
+  connection(): ConnectionBuilder<DB> {
+    throw new Error(
+      'calling the connection method for a Dataloader is not supported'
+    )
+  }
+
+  async destroy(): Promise<void> {
+    throw new Error(
+      'calling the destroy method for a Dataloader is not supported'
+    )
+  }
+
+  override withPlugin(plugin: KyselyPlugin): Dataloader<DB> {
+    return new Dataloader({
+      ...this.#props,
+      executor: this.#props.executor.withPlugin(plugin),
+    })
+  }
+
+  override withoutPlugins(): Dataloader<DB> {
+    return new Dataloader({
+      ...this.#props,
+      executor: this.#props.executor.withoutPlugins(),
+    })
+  }
+
+  /**
+   * @override
+   */
+  withSchema(schema: string): Dataloader<DB> {
+    return new Dataloader({
+      ...this.#props,
+      executor: this.#props.executor.withPluginAtFront(
+        new WithSchemaPlugin(schema)
+      ),
+    })
+  }
+
+  override withTables<
+    T extends Record<string, Record<string, any>>
+  >(): Dataloader<DB & T> {
+    return new Dataloader({ ...this.#props })
+  }
+}
+
+export class DataloaderBuilder<DB> {
+  readonly #props: DataloaderBuilderProps
+
+  constructor(props: DataloaderBuilderProps) {
+    this.#props = freeze({
+      ...props,
+      executor: new DataloaderQueryExecutor(
+        props.dialect.createQueryCompiler()
+      ),
+    })
+  }
+
+  async execute<T>(callback: (dtl: Dataloader<DB>) => Promise<T>): Promise<T> {
+    return this.#props.executor.provideConnection(async (connection) => {
+      const executor = this.#props.executor.withConnectionProvider(
+        new SingleConnectionProvider(connection)
+      )
+
+      const dataloader = new Dataloader<DB>({
+        ...this.#props,
+        executor,
+      })
+
+      return await callback(dataloader)
+    })
+  }
+}
+
+interface DataloaderBuilderProps extends KyselyProps {}
+
+preventAwait(
+  DataloaderBuilder,
+  "don't await DataloaderBuilder instances directly. To execute the Dataloader you need to call the `execute` method"
+)
