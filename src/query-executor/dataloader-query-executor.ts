@@ -1,9 +1,6 @@
 import { QueryResult } from '../driver/database-connection'
-import { OperationNode } from '../operation-node/operation-node'
 import { OrNode } from '../operation-node/or-node'
-import { PrimitiveValueListNode } from '../operation-node/primitive-value-list-node'
 import { SelectQueryNode } from '../operation-node/select-query-node'
-import { ValueNode } from '../operation-node/value-node'
 import { WhereNode } from '../operation-node/where-node'
 import { CompiledQuery } from '../query-compiler/compiled-query'
 import {
@@ -11,12 +8,11 @@ import {
   RootOperationNode,
 } from '../query-compiler/query-compiler'
 import { UnknownRow } from '../util/type-utils'
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 import { createId } from '@paralleldrive/cuid2'
 import { QueryId } from '../util/query-id'
 import { QueryExecutorBase } from './query-executor-base'
 import { DialectAdapter } from '../dialect/dialect-adapter'
-import { ConnectionProvider } from '../driver/connection-provider'
 import { KyselyPlugin } from '../plugin/kysely-plugin'
 
 type Job = {
