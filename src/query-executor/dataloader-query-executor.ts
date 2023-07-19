@@ -55,7 +55,7 @@ const compareWithJS = <R extends UnknownRow>(
     throw new Error('operator is null')
   }
 
-  if (!(operator in JS_COMPARABLE_OPERATORS)) {
+  if (!JS_COMPARABLE_OPERATORS.includes(operator as any)) {
     throw new Error(
       `Operator "${operator}" is not a valid js comparable operator.`
     )
@@ -453,7 +453,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
         rows,
       }
     }
-    return this.executeQuery<R>(compiledQuery, queryId)
+    return super.executeQuery<R>(compiledQuery, queryId)
   }
 
   provideConnection<T>(
