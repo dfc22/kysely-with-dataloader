@@ -303,6 +303,7 @@ type Job = {
 type Batch = {
   [hash: string]: {
     jobs: Job[]
+    tickActive: boolean
     result: Promise<QueryResult<UnknownRow>>
   }
 }
@@ -312,7 +313,6 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
   #compiler: QueryCompiler
   #connectionProvider: ConnectionProvider
   #batches: Batch = {}
-  #tickActive = false
   #tickId = createId()
 
   private constructor(
@@ -365,6 +365,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
       if (this.#batches[queryHash] == null) {
         this.#batches[queryHash] = {
           jobs: [],
+          tickActive: false,
           result: new Promise((resolve, reject) => {
             resolveFunc = resolve
             rejectFunc = reject
@@ -373,8 +374,8 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
         const batch = this.#batches[queryHash]
 
-        if (!this.#tickActive) {
-          this.#tickActive = true
+        if (!batch.tickActive) {
+          batch.tickActive = true
           process.nextTick(() => {
             this.#tickActive = false
 
@@ -405,7 +406,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
                 .then((result) => resolveFunc(result))
                 .catch((err) => rejectFunc(err))
             }
-            this.#tickActive = false
+            batch.tickActive = false
           })
         }
       }
