@@ -400,7 +400,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
               }
 
               const compiledQuery = this.#compiler.compileQuery(batchNode)
-              super
+              this.withoutPlugins()
                 .executeQuery(compiledQuery, queryId)
                 .then((result) => resolveFunc(result))
                 .catch((err) => rejectFunc(err))
@@ -414,14 +414,8 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
         queryId: queryId,
         where: where,
         resolve: ({ rows }) => {
-          const transformedWhere =
-            where != null
-              ? super.transformQuery(node, queryId).where
-              : undefined
           const filteredRows =
-            transformedWhere == null
-              ? rows
-              : getQueriedRows(rows, transformedWhere)
+            where == null ? rows : getQueriedRows(rows, where)
           return {
             rows: filteredRows,
           }
