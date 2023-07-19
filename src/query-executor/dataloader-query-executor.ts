@@ -377,8 +377,6 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
         if (!batch.tickActive) {
           batch.tickActive = true
           process.nextTick(() => {
-            this.#tickActive = false
-
             if (batch.jobs.length > 1) {
               const combinedWhere = batch.jobs
                 .map((v) => v.where)
