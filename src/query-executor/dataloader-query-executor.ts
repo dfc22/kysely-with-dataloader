@@ -297,11 +297,14 @@ const refactorWhere = (node: OperationNode): OperationNode => {
 type Job = {
   queryId: QueryId
   where?: WhereNode
-  result: Promise<QueryResult<UnknownRow>>
+  resolve: (result: QueryResult<UnknownRow>) => QueryResult<UnknownRow>
 }
 
 type Batch = {
-  [hash: string]: Job[]
+  [hash: string]: {
+    jobs: Job[]
+    result: Promise<QueryResult<UnknownRow>>
+  }
 }
 
 export class DataloaderQueryExecutor extends QueryExecutorBase {
@@ -357,9 +360,16 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
       const queryHash = this._getQueryHash(node)
 
       let resolveFunc: (value: any) => void
+      let rejectFunc: (value: any) => void
 
       if (this.#batches[queryHash] == null) {
-        this.#batches[queryHash] = []
+        this.#batches[queryHash] = {
+          jobs: [],
+          result: new Promise((resolve, reject) => {
+            resolveFunc = resolve
+            rejectFunc = reject
+          }),
+        }
 
         const batch = this.#batches[queryHash]
 
@@ -368,8 +378,8 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
           process.nextTick(() => {
             this.#tickActive = false
 
-            if (batch.length > 1) {
-              const combinedWhere = batch
+            if (batch.jobs.length > 1) {
+              const combinedWhere = batch.jobs
                 .map((v) => v.where)
                 .reduce((acc, where) =>
                   acc == null
@@ -391,30 +401,26 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
               const compiledQuery = this.#compiler.compileQuery(batchNode)
 
-              super
-                .executeQuery<UnknownRow>(compiledQuery, queryId)
-                .then(({ rows }) => {
-                  batch.forEach((job) => {
-                    const where = job.where
-                    const filteredRows =
-                      where == null ? rows : getQueriedRows(rows, where)
-                    resolveFunc({
-                      rows: filteredRows,
-                    })
-                  })
-                })
+              batch.result = super.executeQuery<UnknownRow>(
+                compiledQuery,
+                queryId
+              )
             }
             this.#tickActive = false
           })
         }
       }
 
-      this.#batches[queryHash].push({
+      this.#batches[queryHash].jobs.push({
         queryId: queryId,
-        where,
-        result: new Promise((resolve, reject) => {
-          resolveFunc = resolve
-        }),
+        where: where,
+        resolve: ({ rows }) => {
+          const filteredRows =
+            where == null ? rows : getQueriedRows(rows, where)
+          return {
+            rows: filteredRows,
+          }
+        },
       })
     }
 
@@ -425,12 +431,13 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
     compiledQuery: CompiledQuery,
     queryId: QueryId
   ): Promise<QueryResult<R>> {
-    const job = Object.values(this.#batches)
-      .flat()
-      .find((v) => v.queryId.queryId == queryId.queryId)
+    const batch = Object.values(this.#batches).find((v) =>
+      v.jobs.find((v) => v.queryId.queryId == queryId.queryId)
+    )
+    const job = batch?.jobs.find((v) => v.queryId.queryId == queryId.queryId)
 
-    if (job != null) {
-      const result = (await job.result) as QueryResult<R>
+    if (job != null && batch != null) {
+      const result = (await batch.result) as QueryResult<R>
       const where = job.where
       const rows =
         where == null
