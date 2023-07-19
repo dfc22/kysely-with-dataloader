@@ -1,6 +1,26 @@
 import { freeze, isString } from '../util/object-utils.js'
 import { OperationNode } from './operation-node.js'
 
+export const JS_COMPARABLE_OPERATORS = [
+  '=',
+  '==',
+  '!=',
+  '<>',
+  '>',
+  '>=',
+  '<',
+  '<=',
+  'in',
+  'not in',
+  'is',
+  'is not',
+  'like',
+  'not like',
+  'match',
+  'ilike',
+  'not ilike',
+] as const
+
 export const COMPARISON_OPERATORS = [
   '=',
   '==',
@@ -68,6 +88,7 @@ export const OPERATORS = [
   ...UNARY_OPERATORS,
 ] as const
 
+export type JSComparableOperator = (typeof JS_COMPARABLE_OPERATORS)[number]
 export type ComparisonOperator = (typeof COMPARISON_OPERATORS)[number]
 export type ArithmeticOperator = (typeof ARITHMETIC_OPERATORS)[number]
 export type JSONOperator = (typeof JSON_OPERATORS)[number]
