@@ -16,7 +16,6 @@ import { DialectAdapter } from '../dialect/dialect-adapter'
 import { KyselyPlugin } from '../plugin/kysely-plugin'
 import { ConnectionProvider } from '../driver/connection-provider'
 import {
-  BinaryOperator,
   JSComparableOperator,
   JS_COMPARABLE_OPERATORS,
   OperatorNode,
@@ -215,14 +214,20 @@ const getQueriedRows = <R extends UnknownRow>(
 
 const getHash = (node: OperationNode): string => {
   if (AndNode.is(node)) {
-    return `${getHash(node.left)}&${getHash(node.right)}`
+    const leftHash = getHash(node.left)
+    const rightHash = getHash(node.right)
+    const sortedHash = [leftHash, rightHash].sort().join('&')
+    return crypto.createHash('sha1').update(sortedHash).digest('hex')
   }
 
   if (OrNode.is(node)) {
-    return `${getHash(node.left)}|${getHash(node.right)}`
+    const leftHash = getHash(node.left)
+    const rightHash = getHash(node.right)
+    const sortedHash = [leftHash, rightHash].sort().join('|')
+    return crypto.createHash('sha1').update(sortedHash).digest('hex')
   }
 
-  return JSON.stringify(node)
+  return crypto.createHash('sha1').update(JSON.stringify(node)).digest('hex')
 }
 
 const isEqualNode = (a: OperationNode, b: OperationNode): boolean => {
