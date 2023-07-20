@@ -457,7 +457,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
   compileQuery(node: RootOperationNode, queryId: QueryId): CompiledQuery {
     if (SelectQueryNode.is(node)) {
-      let where = node.where
+      const where = node.where
       const queryHash = this._getQueryHash(node)
 
       let resolveFunc: (value: any) => void
@@ -510,21 +510,27 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
         }
       }
 
-      if (node.selections != null) {
-        for (const selection of node.selections) {
-          const node = selection.selection
-          if (where != null && AliasNode.is(node)) {
-            where = modifyWhereWithAliases(where, node) as WhereNode
-          }
-        }
-      }
+      const modifiedWhere =
+        where == null
+          ? undefined
+          : node.selections?.reduce(
+              (acc, selection) => {
+                const node = selection.selection
+                if (acc != null && AliasNode.is(node)) {
+                  return WhereNode.create(
+                    modifyWhereWithAliases(acc.where, node)
+                  ) as WhereNode
+                }
+                return acc
+              },
+              { ...where }
+            )
 
       this.#batches[queryHash].jobs.push({
         queryId: queryId,
-        where: where,
         resolve: ({ rows }) => {
           const filteredRows =
-            where == null ? rows : getQueriedRows(rows, where)
+            modifiedWhere == null ? rows : getQueriedRows(rows, modifiedWhere)
           return {
             rows: filteredRows,
           }
@@ -545,16 +551,10 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
     const job = batch?.jobs.find((v) => v.queryId.queryId == queryId.queryId)
 
     if (job != null && batch != null) {
-      const result = (await batch.result) as QueryResult<R>
-      const where = job.where
-      const rows =
-        where == null
-          ? result.rows
-          : (getQueriedRows(result.rows as UnknownRow[], where) as R[])
+      const result = await batch.result
+      const resolved = job.resolve(result) as QueryResult<R>
 
-      return {
-        rows,
-      }
+      return resolved
     }
     return super.executeQuery<R>(compiledQuery, queryId)
   }
