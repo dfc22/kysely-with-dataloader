@@ -56,6 +56,7 @@ import { Explainable, ExplainFormat } from '../util/explainable.js'
 import { Expression } from '../expression/expression.js'
 import { KyselyTypeError } from '../util/type-error.js'
 import { Streamable } from '../util/streamable.js'
+import { ReturningCuidPlugin } from '../plugin/returning-cuid/returning-cuid-plugin.js'
 
 export class InsertQueryBuilder<DB, TB extends keyof DB, O>
   implements
@@ -779,7 +780,13 @@ export class InsertQueryBuilder<DB, TB extends keyof DB, O>
       this.#props.queryId
     )
 
-    if (this.#props.executor.adapter.supportsReturning && query.returning) {
+    if (
+      (this.#props.executor.adapter.supportsReturning ||
+        this.#props.executor.plugins.findIndex(
+          (v) => v instanceof ReturningCuidPlugin
+        ) != -1) &&
+      query.returning
+    ) {
       return result.rows as any
     }
 
