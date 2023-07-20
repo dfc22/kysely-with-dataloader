@@ -781,11 +781,10 @@ export class InsertQueryBuilder<DB, TB extends keyof DB, O>
     )
 
     if (
-      (this.#props.executor.adapter.supportsReturning ||
-        this.#props.executor.plugins.findIndex(
-          (v) => v instanceof ReturningCuidPlugin
-        ) != -1) &&
-      query.returning
+      (this.#props.executor.adapter.supportsReturning && query.returning) ||
+      this.#props.executor.plugins.findIndex(
+        (v) => v instanceof ReturningCuidPlugin
+      ) != -1
     ) {
       return result.rows as any
     }
