@@ -528,6 +528,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
       this.#batches[queryHash].jobs.push({
         queryId: queryId,
+        where,
         resolve: ({ rows }) => {
           const filteredRows =
             modifiedWhere == null ? rows : getQueriedRows(rows, modifiedWhere)
