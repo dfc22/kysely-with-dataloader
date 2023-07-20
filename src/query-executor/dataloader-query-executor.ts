@@ -386,7 +386,7 @@ const modifyWhereWithAliases = <TNode>(
     IdentifierNode.is(alias.alias)
   ) {
     return BinaryOperationNode.create(
-      IdentifierNode.create(alias.alias.name),
+      ColumnNode.create(alias.alias.name),
       node.operator,
       node.rightOperand
     )
