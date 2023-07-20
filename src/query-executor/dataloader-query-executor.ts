@@ -27,6 +27,9 @@ import { ReferenceNode } from '../operation-node/reference-node'
 import { ColumnNode } from '../operation-node/column-node'
 import { ValueNode } from '../operation-node/value-node'
 import { PrimitiveValueListNode } from '../operation-node/primitive-value-list-node'
+import { AliasNode } from '../operation-node/alias-node'
+import { SelectionNode } from '../operation-node/selection-node'
+import { IdentifierNode } from '../operation-node/identifier-node'
 
 const compareWithJS = <R extends UnknownRow>(
   row: R,
@@ -361,6 +364,29 @@ const refactorWhere = (node: OperationNode): OperationNode => {
   return node
 }
 
+const modifyWhereWithAliases = <TNode>(
+  node: OperationNode,
+  alias: AliasNode
+): OperationNode => {
+  if (AndNode.is(node)) {
+    return AndNode.create(
+      modifyWhereWithAliases(WhereNode.create(node.left), alias),
+      modifyWhereWithAliases(WhereNode.create(node.right), alias)
+    )
+  } else if (OrNode.is(node)) {
+    return OrNode.create(
+      modifyWhereWithAliases(WhereNode.create(node.left), alias),
+      modifyWhereWithAliases(WhereNode.create(node.right), alias)
+    )
+  }
+
+  if (isEqualNode(node, alias.node) && IdentifierNode.is(alias.alias)) {
+    return IdentifierNode.create(alias.alias.name)
+  }
+
+  return node
+}
+
 type Job = {
   queryId: QueryId
   where?: WhereNode
@@ -423,7 +449,7 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
 
   compileQuery(node: RootOperationNode, queryId: QueryId): CompiledQuery {
     if (SelectQueryNode.is(node)) {
-      const where = node.where
+      let where = node.where
       const queryHash = this._getQueryHash(node)
 
       let resolveFunc: (value: any) => void
@@ -473,6 +499,15 @@ export class DataloaderQueryExecutor extends QueryExecutorBase {
             }
             batch.tickActive = false
           })
+        }
+      }
+
+      if (node.selections != null) {
+        for (const selection of node.selections) {
+          const node = selection.selection
+          if (where != null && AliasNode.is(node)) {
+            where = modifyWhereWithAliases(where, node) as WhereNode
+          }
         }
       }
 
