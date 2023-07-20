@@ -26,6 +26,7 @@ import { BinaryOperationNode } from '../operation-node/binary-operation-node'
 import { ReferenceNode } from '../operation-node/reference-node'
 import { ColumnNode } from '../operation-node/column-node'
 import { ValueNode } from '../operation-node/value-node'
+import { PrimitiveValueListNode } from '../operation-node/primitive-value-list-node'
 
 const compareWithJS = <R extends UnknownRow>(
   row: R,
@@ -264,6 +265,72 @@ const refactorWhere = (node: OperationNode): OperationNode => {
   } else if (OrNode.is(node)) {
     const left = refactorWhere(node.left)
     const right = refactorWhere(node.right)
+
+    if (
+      BinaryOperationNode.is(left) &&
+      BinaryOperationNode.is(right) &&
+      isEqualNode(left.leftOperand, right.leftOperand) &&
+      OperatorNode.is(left.operator) &&
+      OperatorNode.is(right.operator)
+    ) {
+      if (
+        (left.operator.operator === '=' || left.operator.operator === '==') &&
+        (right.operator.operator === '=' || right.operator.operator === '==') &&
+        ValueNode.is(left.rightOperand) &&
+        ValueNode.is(right.rightOperand)
+      ) {
+        return BinaryOperationNode.create(
+          left.leftOperand,
+          OperatorNode.create('in'),
+          PrimitiveValueListNode.create([
+            left.rightOperand.value,
+            right.rightOperand.value,
+          ])
+        )
+      } else if (
+        (left.operator.operator === '=' || left.operator.operator === '==') &&
+        right.operator.operator === 'in' &&
+        ValueNode.is(left.rightOperand) &&
+        PrimitiveValueListNode.is(right.rightOperand)
+      ) {
+        return BinaryOperationNode.create(
+          left.leftOperand,
+          OperatorNode.create('in'),
+          PrimitiveValueListNode.create([
+            left.rightOperand.value,
+            ...right.rightOperand.values,
+          ])
+        )
+      } else if (
+        (right.operator.operator === '=' || right.operator.operator === '==') &&
+        left.operator.operator === 'in' &&
+        ValueNode.is(right.rightOperand) &&
+        PrimitiveValueListNode.is(left.rightOperand)
+      ) {
+        return BinaryOperationNode.create(
+          right.leftOperand,
+          OperatorNode.create('in'),
+          PrimitiveValueListNode.create([
+            right.rightOperand.value,
+            ...left.rightOperand.values,
+          ])
+        )
+      } else if (
+        left.operator.operator === 'in' &&
+        right.operator.operator === 'in' &&
+        PrimitiveValueListNode.is(left.rightOperand) &&
+        PrimitiveValueListNode.is(right.rightOperand)
+      ) {
+        return BinaryOperationNode.create(
+          left.leftOperand,
+          OperatorNode.create('in'),
+          PrimitiveValueListNode.create([
+            ...left.rightOperand.values,
+            ...right.rightOperand.values,
+          ])
+        )
+      }
+    }
 
     if (isEqualNode(left, right)) {
       return left
