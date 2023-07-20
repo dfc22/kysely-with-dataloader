@@ -380,8 +380,16 @@ const modifyWhereWithAliases = <TNode>(
     )
   }
 
-  if (isEqualNode(node, alias.node) && IdentifierNode.is(alias.alias)) {
-    return IdentifierNode.create(alias.alias.name)
+  if (
+    BinaryOperationNode.is(node) &&
+    isEqualNode(node.leftOperand, alias.node) &&
+    IdentifierNode.is(alias.alias)
+  ) {
+    return BinaryOperationNode.create(
+      IdentifierNode.create(alias.alias.name),
+      node.operator,
+      node.rightOperand
+    )
   }
 
   return node
